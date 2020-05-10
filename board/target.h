@@ -46,6 +46,9 @@ static const aes_gf28_t sbox[256] = {
 
 static aes_gf28_t mbox[256];
 
+static aes_gf28_t keySchedule[Nr+1][4 * Nb];
+
+static aes_gf28_t mask[10];
 
 
 aes_gf28_t aes_gf28_add( aes_gf28_t a, aes_gf28_t b );

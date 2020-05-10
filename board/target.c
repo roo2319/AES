@@ -244,6 +244,19 @@ void aes_enc_rnd_mix(aes_gf28_t* s){
 
 void aes_init(const uint8_t* k, const uint8_t* r ) {
   //Make round key
+  memcpy(keySchedule[0],k,16);
+  memcpy(mask,r,6);
+
+
+  maskSBox(mask);
+  computeMixMask(mask);
+  for(int i = 1; i < Nr; i++){
+    aes_enc_keyexp_step(keySchedule[i],keySchedule[i-1],AES_RC[i]);
+    mask16(keySchedule[i-1],mask[0]^mask[6],mask[0]^mask[7],mask[0]^mask[8],mask[0]^mask[9]);
+  }
+  aes_enc_keyexp_step(keySchedule[Nr],keySchedule[Nr-1],AES_RC[Nr]);
+  mask16(keySchedule[Nr-1],mask[0]^mask[6],mask[0]^mask[7],mask[0]^mask[8],mask[0]^mask[9]);
+  mask16(keySchedule[Nr],mask[1],mask[1],mask[1],mask[1]);
   return;
 }
 
@@ -257,23 +270,18 @@ void aes_init(const uint8_t* k, const uint8_t* r ) {
   */
 
 void aes     ( uint8_t* c, const uint8_t* m, const uint8_t* k, const uint8_t* r ) {
-    aes_gf28_t rk[4 * Nb], s[ 4 * Nb], mask[10];
+    aes_gf28_t rk[4 * Nb], s[ 4 * Nb];
 
-    aes_gf28_t* rcp = AES_RC;
-    aes_gf28_t* rkp = rk;
+    aes_gf28_t* rkp = keySchedule[0];
 
     memcpy(s,m,16);
-    memcpy(rk,k,16);
-    memcpy(mask,r,6);
-
-
-    maskSBox(mask);
-    computeMixMask(mask);
+    
     maskStateAndKey(s,rk,mask);
 
     //1 initial round
     aes_enc_rnd_key(s,rkp);
     //Nr - 1 rounds
+    rkp = keySchedule[1];
     for( int i = 1; i<Nr; i++){
         aes_enc_rnd_sub(s);
         aes_enc_rnd_row(s);
@@ -282,20 +290,22 @@ void aes     ( uint8_t* c, const uint8_t* m, const uint8_t* k, const uint8_t* r 
         aes_enc_rnd_mix(s);
 
         // Unmask and remask the key for key exponentiation
-        mask16(rk,mask[0]^mask[6],mask[0]^mask[7],mask[0]^mask[8],mask[0]^mask[9]);
-        aes_enc_keyexp_step(rkp,rkp,*(++rcp));
-        mask16(rk,mask[0]^mask[6],mask[0]^mask[7],mask[0]^mask[8],mask[0]^mask[9]);
+        // mask16(rk,mask[0]^mask[6],mask[0]^mask[7],mask[0]^mask[8],mask[0]^mask[9]);
+        // aes_enc_keyexp_step(rkp,rkp,*(++rcp));
+        // mask16(rk,mask[0]^mask[6],mask[0]^mask[7],mask[0]^mask[8],mask[0]^mask[9]);
 
-        aes_enc_rnd_key(s,rk);
+        aes_enc_rnd_key(s,rkp);
+        rkp = keySchedule[i+1];
+
     }
     //Final round
     aes_enc_rnd_sub(s);
     aes_enc_rnd_row(s);
 
     // Unmask, but remask with a different mask in order to give unmasked end result
-    mask16(rk,mask[0]^mask[6],mask[0]^mask[7],mask[0]^mask[8],mask[0]^mask[9]);
-    aes_enc_keyexp_step(rkp,rkp,*(++rcp));
-    mask16(rk,mask[1],mask[1],mask[1],mask[1]);
+    // mask16(rk,mask[0]^mask[6],mask[0]^mask[7],mask[0]^mask[8],mask[0]^mask[9]);
+    // aes_enc_keyexp_step(rkp,rkp,*(++rcp));
+    // mask16(rk,mask[1],mask[1],mask[1],mask[1]);
 
     aes_enc_rnd_key(s,rkp);
 
